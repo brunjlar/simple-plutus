@@ -4,7 +4,10 @@ module Examples.GuessingGame where
 
 import Plutus
 
-guessingScript :: String -> Script
+-- | Validation script for a guessing game. Funds can be unlocked by guessing the secret.
+-- The guess must be put into the redeemer.
+guessingScript :: String -- ^ the secret to guess
+               -> Script
 guessingScript secret = Script $ \i _outputs tx -> do
     guess <- redeemer i tx
     unless (guess == secret) $

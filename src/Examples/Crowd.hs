@@ -4,7 +4,12 @@ module Examples.Crowd where
 
 import Plutus
 
-crowdScript :: PubKey -> Natural -> Slot -> Slot -> Script
+-- | Validation script for a crowd-sourcing campaign.
+crowdScript :: PubKey  -- ^ campaign owner
+            -> Natural -- ^ campaign target
+            -> Slot    -- ^ collection deadline; once reached, the owner can collect
+            -> Slot    -- ^ refund deadline; once reached, contributors can get a refund
+            -> Script
 crowdScript owner target collect refund = Script $ \i outputs tx -> do
     let start = tx ^. txSlotRange % srStart
     case (start >= refund, start >= collect) of
