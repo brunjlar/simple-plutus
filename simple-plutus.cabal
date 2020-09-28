@@ -7,11 +7,14 @@ build-type:          Simple
 
 library
   exposed-modules:     Plutus
-                     , Plutus.Datum
+                     , Plutus.Chain
                      , Plutus.Examples
                      , Plutus.Hash
                      , Plutus.StateMachine
-                     , Plutus.Value
+                     , Plutus.Types
+                     , Plutus.Types.Datum
+                     , Plutus.Types.Value
+                     , Plutus.Validation
   build-depends:       base >=4.14 && <4.15
                      , containers
                      , cryptonite

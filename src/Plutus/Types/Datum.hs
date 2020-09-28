@@ -1,12 +1,12 @@
 {-# LANGUAGE GADTs #-}
 
-module Plutus.Datum
+module Plutus.Types.Datum
     ( Datum
     , toDatum
     , fromDatum
     ) where
 
-import Data.Dynamic
+import Data.Function (on)
 import Data.Typeable
 
 data Datum where
@@ -14,6 +14,12 @@ data Datum where
 
 instance Show Datum where
     show (Datum d) = "<<" ++ show (typeOf d) ++ ": " ++ show d ++ ">>"
+
+instance Eq Datum where
+    (==) = (==) `on` show
+
+instance Ord Datum where
+    compare = compare `on` show
 
 toDatum :: (Show a, Typeable a) => a -> Datum
 toDatum = Datum
