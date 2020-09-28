@@ -1,9 +1,8 @@
 {-# LANGUAGE GADTs #-}
 
 module Plutus.Types.Datum
-    ( Datum
-    , toDatum
-    , fromDatum
+    ( Typeable, Datum
+    , toDatum, fromDatum
     ) where
 
 import Data.Function (on)

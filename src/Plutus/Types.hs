@@ -29,7 +29,7 @@ import Plutus.Hash
 import Plutus.Types.Datum
 import Plutus.Types.Value
 
-newtype PubKey = PK String
+newtype PubKey = PubKey String
     deriving newtype (Show, Eq, Ord, IsString)
 
 newtype Slot = Slot Natural
@@ -55,6 +55,9 @@ instance Show SlotRange where
 
 data Address = PKAddr PubKey | ScriptAddr ScriptId
     deriving (Show, Eq, Ord)
+
+instance IsString Address where
+    fromString = PKAddr . PubKey
 
 data Output = Output
     { _oAddress :: Address
@@ -82,11 +85,14 @@ data Tx = Tx
 
 newtype Script = Script {runScript :: Int -> [Output] -> Tx -> Either String ()}
 
+instance Show Script where
+    show _ = "<<SCRIPT>>"
+
 data ChainState = ChainState
     { _csUTxOs   :: Map OutputPtr Output
     , _csSlot    :: Slot
     , _csScripts :: Seq Script
-    }
+    } deriving Show
 
 makePrisms ''SlotEnd
 makeLenses ''SlotRange

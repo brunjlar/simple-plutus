@@ -1,7 +1,34 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-module Plutus.Examples where
+module Examples.GuessingGame where
 
+import Plutus
+
+guessingScript :: String -> Script
+guessingScript secret = Script $ \i _outputs tx -> do
+    guess <- redeemer i tx
+    unless (guess == secret) $
+        validationError "incorrect guess"
+
+guessingExample :: String -> Either ChainError ((), ChainState)
+guessingExample guess = flip runChainM [("Alice", 100)] $ do
+    sid  <- uploadScript $ guessingScript "Haskell"
+    tid1 <- addTx $ Tx
+        { _txInputs    = [Input (genesis 0) unit]
+        , _txOutputs   = [Output (ScriptAddr sid) (fromAda 100) unit]
+        , _txSignees   = ["Alice"]
+        , _txSlotRange = always
+        , _txForge     = mempty
+        }
+    void $ addTx $ Tx
+        { _txInputs    = [Input (optr tid1 0) (toDatum guess)]
+        , _txOutputs   = [Output "Bob" (fromAda 100) unit]
+        , _txSignees   = []
+        , _txSlotRange = always
+        , _txForge     = mempty
+        }
+
+{-
 import           Control.Monad
 import qualified Data.Map        as Map
 import           Optics          hiding (elements)
@@ -936,3 +963,4 @@ failingCampaignExample = flip runChainM [("Alice", 1000), ("Bob", 1000), ("Charl
         , _txSlotRange = SlotRange 20 (Finite 20)
         , _txForge     = mempty
         }
+-}

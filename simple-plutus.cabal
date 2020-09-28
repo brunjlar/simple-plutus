@@ -6,14 +6,15 @@ maintainer:          brunjlar@gmail.com
 build-type:          Simple
 
 library
-  exposed-modules:     Plutus
+  exposed-modules:     Examples.GuessingGame
+                     , Plutus
                      , Plutus.Chain
-                     , Plutus.Examples
                      , Plutus.Hash
                      , Plutus.StateMachine
                      , Plutus.Types
                      , Plutus.Types.Datum
                      , Plutus.Types.Value
+                     , Plutus.Utils
                      , Plutus.Validation
   build-depends:       base >=4.14 && <4.15
                      , containers

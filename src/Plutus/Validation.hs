@@ -19,7 +19,7 @@ inRange s (SlotRange start end) =
         Forever    -> True
         (Finite t) -> s <= t
 
-addTx :: Tx -> ChainM ()
+addTx :: Tx -> ChainM Hash
 addTx tx = do
 
     -- ensure the transaction's slot range is valid
@@ -33,7 +33,7 @@ addTx tx = do
     consumedOutputs <- mapM useUTxO $ toListOf (each % iOutputPtr) inputs
 
     -- validate each input and collect all input values
-    inVal <- mconcat <$> mapM (validateInput consumedOutputs) [0 .. length inputs]
+    inVal <- mconcat <$> mapM (validateInput consumedOutputs) [0 .. length inputs - 1]
 
     -- add the newly produced outputs to the UTxO-set and collect their values
     outVal <- processOutputs
@@ -49,6 +49,8 @@ addTx tx = do
     forM_ forgeScripts $ \sid ->
         unless (anyOf (each % oAddress % _ScriptAddr) (== sid) consumedOutputs) $
             throwError $ IllegalForging sid
+
+    return $ hash tx
 
   where
     checkSlot :: ChainM ()
@@ -76,7 +78,7 @@ addTx tx = do
     processOutputs = do
         let tid             = Just $ hash tx
             producedOutputs = tx ^. txOutputs
-        values <- forM [0 .. length producedOutputs] $ \i -> do
+        values <- forM [0 .. length producedOutputs - 1] $ \i -> do
             let output = producedOutputs !! i
             addUTxO (OutputPtr tid i) output
             return $ output ^. oValue

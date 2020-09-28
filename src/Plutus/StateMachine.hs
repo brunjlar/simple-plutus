@@ -2,6 +2,7 @@
 
 module Plutus.StateMachine where
 
+{-
 import Control.Monad
 import Data.Typeable (Typeable)
 import Optics
@@ -212,3 +213,4 @@ deployStateMachine sm cont owner = do
         }
 
     return (stateMachineSid, tid4, token)
+-}

@@ -2,7 +2,7 @@
 
 module Plutus.Chain
     ( MonadError (..)
-    , unit
+    , unit, genesis
     , ChainError (..)
     , ChainM
     , runChainM
@@ -22,6 +22,9 @@ import           Plutus.Types
 
 unit :: Datum
 unit = toDatum ()
+
+genesis :: Int -> OutputPtr
+genesis = OutputPtr Nothing
 
 genesisState :: [(PubKey, Natural)] -> ChainState
 genesisState xs = ChainState
