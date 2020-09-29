@@ -1,4 +1,5 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Plutus.Types.Datum
     ( Typeable, Datum
@@ -23,5 +24,5 @@ instance Ord Datum where
 toDatum :: (Show a, Typeable a) => a -> Datum
 toDatum = Datum
 
-fromDatum :: Typeable a => Datum -> Maybe a
+fromDatum :: forall a. Typeable a => Datum -> Maybe a
 fromDatum (Datum d) = cast d

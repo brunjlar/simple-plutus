@@ -1,84 +1,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Plutus.StateMachine where
+module Plutus.StateMachine
+    (
+    ) where
 
 {-
 import Control.Monad
-import Data.Typeable (Typeable)
-import Optics
 
-import Plutus
-
-{-
--- State Machines:
---
--- A "machine" that has a state of some type and can undergo transations of a specific type
--- which change the state.
---
--- Described by:
---
--- - a type s for the state
--- - a type t for the possible transitions
--- - a transition function s -> t -> Maybe s (which either gives the new state or indicates that the transition is illegal
---   for that state.
--- - an initial state
--- - optionally a set of final states, given by a predicate s -> Bool which indicates whether a state is final. In a final state
---   no more transitions are possible.
-
-
--- Remember the elevator DSL: The elevator can go up (if not at the top) or down (if not at the bottom).
--- Let's assume there are floors 1, 2 .. 10.
-
-type ElevatorState = Int            -- state is given by the floor the elevator is at
-data ElevatorTransition = Up | Down -- elevator can change (transition) state by either going up or down
-
-elevatorTransit :: ElevatorState -> ElevatorTransition -> Maybe ElevatorState
-elevatorTransit floor Up
-    | floor < 10 = Just $ floor + 1
-    | otherwise  = Nothing
-elevatorTransit floor Down
-    | floor > 1  = Just $ floor - 1
-    | otherwise  = Nothing
-
-elevatorInitialState :: ElevatorState
-elevatorInitialState = 1
-
-elevatorIsFinal :: ElevatorState -> Bool
-elevatorIsFinal = const False
-
--- As another example, we could model an auction as a state machine. Let's assume the minimal bid is 100.
-
-type AuctionState = Maybe (Int, String)
-
-data AuctionTransition = Bid Int String
-
-auctionInitialState :: AuctionState
-auctionInitialState = Nothing
-
-auctionTransit :: AuctionState -> AuctionTransition -> Maybe AuctionState
-auctionTransit Nothing                    (Bid bid bidder)
-    | bid >= 100 = Just $ Just (bid, bidder)
-    | otherwise  = Nothing
-auctionTransit (Just (oldBid, oldBidder)) (Bid newBid newBidder)
-    | newBid > oldBid = Just $ Just (newBid, newBidder)
-    | otherwise       = Nothing
-
-auctionIsFinal :: AuctionState -> Bool
-auctionIsFinal = const False           -- this is not really right - we should consider time and allow the auction to end
-                                       -- when there hasn't been a new bid for a certain time
-
--- GOAL: Simulate state machines as Plutus Contracts
---
--- Idea:
---    state machine -- script address/validator
---    state         -- datum of "the" output at that address
---    transition    -- transaction, where the redeemer of the consuming input is the transition to be applied
-
-
---   Address: ScriptAddress sid                 Address: ScriptAddress sid
---   Datum: s                        ----       Datum s', provided transtion s t = Just s'
---                                redeemer: t
--}
+import Plutus.Types
+import Plutus.Utils
+import Plutus.Validation
 
 data StateMachine s t = StateMachine
     { initialState :: s
@@ -86,23 +17,17 @@ data StateMachine s t = StateMachine
     , isFinal      :: s -> Bool
     }
 
--- How do we identify the "right" output that holds the state of our machine? There could be
--- many outputs at that script address, because there is no way to prevent somebody from creating
--- outputs at arbitrary addresses.
---
--- Idea: Create a unique token for this state machine and attach it to "the right" output.
-
 stateMachineScript :: forall s t. (Eq s, Typeable s, Typeable t)
                    => StateMachine s t
                    -> Token
                    -> (s -> t -> Maybe (s, Output) -> Script)
                    -> Script
-stateMachineScript sm token cont = Script $ \sid value datum index outputs tx -> fromEither $ do
+stateMachineScript sm token cont = Script $ \i outputs tx -> do
 
-    unless (tokenAmount token value == 1) $
-        throwError "unique token is not present in the old output"
+    assert (tokenAmount token value == 1) $
+        validationError "unique token is not present in the old output"
 
-    state         <- case fromDynamic datum of
+    state         <- case fromDatum datum of
                         Nothing -> throwError "datum has the wrong type"
                         Just s  -> return (s :: s)
     transition    <- case fromDynamic $ getRedeemer index tx of

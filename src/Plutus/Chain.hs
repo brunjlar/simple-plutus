@@ -50,8 +50,8 @@ data ChainError =
 newtype ChainM a = ChainM (StateT ChainState (Either ChainError) a)
     deriving (Functor, Applicative, Monad, MonadError ChainError)
 
-runChainM :: ChainM a -> [(PubKey, Natural)] -> Either ChainError (a, ChainState)
-runChainM (ChainM m) = runStateT m . genesisState
+runChainM :: [(PubKey, Natural)] -> ChainM a -> Either ChainError (a, ChainState)
+runChainM xs (ChainM m) = runStateT m $ genesisState xs
 
 tick :: Slot -> ChainM ()
 tick slot = ChainM $ csSlot %= max slot

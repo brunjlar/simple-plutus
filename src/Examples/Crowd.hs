@@ -10,26 +10,24 @@ crowdScript :: PubKey  -- ^ campaign owner
             -> Slot    -- ^ collection deadline; once reached, the owner can collect
             -> Slot    -- ^ refund deadline; once reached, contributors can get a refund
             -> Script
-crowdScript owner target collect refund = Script $ \i outputs tx -> do
+crowdScript owner target collect refund = do
+    tx <- txS
     let start = tx ^. txSlotRange % srStart
     case (start >= refund, start >= collect) of
 
         -- refund
         (True, _) -> do
-                        d <- datum i outputs
-                        unless (d `elem` tx ^. txSignees) $
-                            validationError "contributor signature missing"
+                        d <- ownDatum
+                        assertS (d `elem` tx ^. txSignees) "contributor signature missing"
 
         -- collect
         (_, True) -> do
+                        outputs <- outputsS
                         let v = sumOf (each % oValue % to adaAmount) outputs
-                        unless (v >= target) $
-                            validationError "campaign target not reached"
+                        assertS (v >= target) "campaign target not reached"
+                        assertS (owner `elem` tx ^. txSignees) "owener signature missing"
 
-                        unless (owner `elem` tx ^. txSignees) $
-                            validationError "owener signature missing"
-
-        _         -> validationError "deadline not reached"
+        _         -> throwError "deadline not reached"
 
 startExampleCampaign :: Natural -> Natural -> ChainM (Hash, Hash)
 startExampleCampaign bob charlie = do
@@ -55,7 +53,7 @@ startExampleCampaign bob charlie = do
     return (tid1, tid2)
 
 successfulCampaignExample :: IO ()
-successfulCampaignExample = flip runChainM' [("Alice", 1000), ("Bob", 1000), ("Charlie", 1000)] $ do
+successfulCampaignExample = runChainM' [("Alice", 1000), ("Bob", 1000), ("Charlie", 1000)] $ do
     (tid1, tid2)  <- startExampleCampaign 700 800
     tick 10
     void $ addTx $ Tx
@@ -70,7 +68,7 @@ successfulCampaignExample = flip runChainM' [("Alice", 1000), ("Bob", 1000), ("C
         }
 
 failedCampaignExample :: IO ()
-failedCampaignExample = flip runChainM' [("Alice", 1000), ("Bob", 1000), ("Charlie", 1000)] $ do
+failedCampaignExample = runChainM' [("Alice", 1000), ("Bob", 1000), ("Charlie", 1000)] $ do
     (tid1, tid2)  <- startExampleCampaign 700 700
     tick 20
     void $ addTx $ Tx

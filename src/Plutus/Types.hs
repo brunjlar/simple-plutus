@@ -15,15 +15,17 @@ module Plutus.Types
     , OutputPtr (..), opTxHash, opOutputIx
     , Input (..), iOutputPtr, iRedeemer
     , Tx (..), txInputs, txOutputs, txSignees, txSlotRange, txForge
-    , Script (..)
+    , ScriptM, runScript, indexS, outputsS, txS, Script
     , ChainState (..), csUTxOs, csSlot, csScripts
     ) where
 
-import Data.Map.Strict    (Map)
-import Data.Sequence      (Seq)
-import Data.String        (IsString (..))
+import Control.Monad.Except
+import Control.Monad.Reader
+import Data.Map.Strict      (Map)
+import Data.Sequence        (Seq)
+import Data.String          (IsString (..))
 import Optics
-import Text.Printf        (PrintfArg (..))
+import Text.Printf          (PrintfArg (..))
 
 import Plutus.Hash
 import Plutus.Types.Datum
@@ -90,11 +92,26 @@ data Tx = Tx
     , _txForge     :: Value      -- ^ custom tokens forged by this transaction
     } deriving Show
 
+newtype ScriptM a = ScriptM (ReaderT (Int, [Output], Tx) (Either String) a)
+    deriving (Functor, Applicative, Monad, MonadError String)
+
+runScript :: ScriptM a -> Int -> [Output] -> Tx -> Either String a
+runScript (ScriptM m) i outputs tx = runReaderT m (i, outputs, tx)
+
+indexS :: ScriptM Int
+indexS = ScriptM $ asks $ \(i, _, _) -> i
+
+outputsS :: ScriptM [Output]
+outputsS = ScriptM $ asks $ \(_, outputs, _) -> outputs
+
+txS :: ScriptM Tx
+txS = ScriptM $ asks $ \(_, _, tx) -> tx
+
 -- | A validation script which will be executed when a transaction tries to spend
 -- an 'Output' locked at the script address for the script.
-newtype Script = Script {runScript :: Int -> [Output] -> Tx -> Either String ()}
+type Script = ScriptM ()
 
-instance Show Script where
+instance Show (ScriptM a) where
     show _ = "<<SCRIPT>>"
 
 -- | Determines the state of the blockchain.

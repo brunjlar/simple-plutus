@@ -9,20 +9,21 @@ fungibleScript :: OutputPtr -- ^ unique output to consume during minting
                -> Natural   -- ^ total supply to be minted
                -> String    -- ^ token name
                -> Script
-fungibleScript ptr supply name = Script $ \i outputs tx -> do
+fungibleScript ptr supply name = do
 
     -- make sure the specified output is consumed
-    unless (anyOf (txInputs % each % iOutputPtr) (== ptr) tx) $
-        validationError $ "output " ++ show ptr ++ " not consumed"
+    tx <- txS
+    assertS (anyOf (txInputs % each % iOutputPtr) (== ptr) tx) $
+        "output " ++ show ptr ++ " not consumed"
 
     -- make sure the right amount is minted
-    sid <- ownScriptId i outputs
+    sid <- ownScriptId
     let actualSupply = tx ^. txForge % to (tokenAmount $ Token sid name)
-    unless (actualSupply == supply) $
-        validationError $ "actually minted token amount " ++ show actualSupply ++ " disagrees with expected amount " ++ show supply
+    assertS (actualSupply == supply) $
+        "actually minted token amount " ++ show actualSupply ++ " disagrees with expected amount " ++ show supply
 
 fungibleExample :: Natural -> String -> IO ()
-fungibleExample supply tn = flip runChainM' [("Alice", 1000)] $ do
+fungibleExample supply tn = runChainM' [("Alice", 1000)] $ do
     -- create an output that can serve as unique output for the monetary policy
     tid1 <- addTx $ Tx
         { _txInputs    = [Input (genesis 0) unit]
@@ -48,7 +49,7 @@ fungibleExample supply tn = flip runChainM' [("Alice", 1000)] $ do
         }
 
     -- mint the token
-    tid3 <- addTx $ Tx
+    void $ addTx $ Tx
         { _txInputs    = [ Input (optr tid2 1) unit
                          , Input (optr tid1 1) unit
                          ]
@@ -57,4 +58,3 @@ fungibleExample supply tn = flip runChainM' [("Alice", 1000)] $ do
         , _txSlotRange = always
         , _txForge     = fromToken token supply
         }
-    return ()
