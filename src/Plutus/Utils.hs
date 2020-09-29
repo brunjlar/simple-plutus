@@ -4,7 +4,7 @@ module Plutus.Utils
     , optr
     , always
     , validationError
-    , datum, redeemer
+    , datum, redeemer, ownScriptId
     ) where
 
 import           Control.Monad
@@ -55,3 +55,8 @@ redeemer :: Typeable a => Int -> Tx -> Either String a
 redeemer i tx = case preview (txInputs % ix i % iRedeemer) tx >>= fromDatum of
     Nothing -> validationError "wrong redeemer type"
     Just a  -> return a
+
+ownScriptId :: Int -> [Output] -> Either String ScriptId
+ownScriptId i outputs = case preview (ix i % oAddress % _ScriptAddr) outputs of
+    Nothing  -> validationError "index out of range of wrong address type"
+    Just sid -> return sid

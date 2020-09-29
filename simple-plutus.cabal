@@ -8,6 +8,7 @@ build-type:          Simple
 library
   exposed-modules:     Examples.Crowd
                      , Examples.GuessingGame
+                     , Examples.Fungible
                      , Plutus
                      , Plutus.Chain
                      , Plutus.Hash

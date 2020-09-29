@@ -26,7 +26,7 @@ addTx tx = do
     checkSlot
 
     let inputs = tx ^. txInputs
-    when (null inputs) $   -- Each transaction needs at least one input 
+    when (null inputs) $   -- Each transaction needs at least one input
         throwError NoInput -- (so no two transactions have the same hash).
 
     -- make sure all inputs point to unspent outputs
@@ -43,6 +43,10 @@ addTx tx = do
     let forge = tx ^. txForge
     when (inVal <> forge /= outVal) $
         throwError $ ValueMismatch inVal outVal
+
+    -- check that no ada was forged
+    unless (adaAmount forge == 0) $
+        throwError IllegalAdaForging
 
     -- check that a corresponding monetary policy output was consumed for each forged token
     let forgeScripts = toListOf (to tokens % each % _Token % _1) forge

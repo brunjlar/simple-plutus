@@ -12,7 +12,7 @@ module Plutus.Chain
     ) where
 
 import           Control.Monad.Except   (MonadError (..))
-import           Control.Monad.State 
+import           Control.Monad.State
 import qualified Data.Map.Strict        as Map
 import qualified Data.Sequence          as Seq
 import           Optics
@@ -28,7 +28,7 @@ genesis = OutputPtr Nothing
 
 genesisState :: [(PubKey, Natural)] -> ChainState
 genesisState xs = ChainState
-    { _csUTxOs   = Map.fromList [ (OutputPtr Nothing i, Output (PKAddr pk) (fromAda n) unit) 
+    { _csUTxOs   = Map.fromList [ (OutputPtr Nothing i, Output (PKAddr pk) (fromAda n) unit)
                                 | (i, (pk, n)) <- zip [0..] xs
                                 ]
     , _csSlot    = 0
@@ -43,6 +43,7 @@ data ChainError =
     | SlotError Slot SlotRange
     | InvalidScriptId ScriptId
     | IllegalForging ScriptId
+    | IllegalAdaForging
     | NoInput
     deriving Show
 
