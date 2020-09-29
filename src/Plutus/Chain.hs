@@ -9,6 +9,7 @@ module Plutus.Chain
     , tick, time
     , uploadScript, lookupScript
     , addUTxO, useUTxO
+    , outputsAt
     ) where
 
 import           Control.Monad.Except   (MonadError (..))
@@ -45,6 +46,7 @@ data ChainError =
     | IllegalForging ScriptId
     | IllegalAdaForging
     | NoInput
+    | CustomError String
     deriving Show
 
 newtype ChainM a = ChainM (StateT ChainState (Either ChainError) a)
@@ -80,3 +82,8 @@ useUTxO ptr = ChainM $ do
     case m of
         Nothing  -> throwError $ NonExistingOutput ptr
         Just out -> csUTxOs % at ptr .= Nothing >> return out
+
+outputsAt :: Address -> ChainM [(OutputPtr, Output)]
+outputsAt addr = ChainM $ do
+    m <- use csUTxOs
+    return $ Map.toList $ Map.filter (\output -> output ^. oAddress == addr) m

@@ -6,8 +6,9 @@ module Plutus.Utils
     , dumpChainState, runChainM'
     , optr
     , always
-    , viewS, assertS
-    , ownDatum, ownRedeemer, ownScriptId, ownValue
+    , viewS, assertS, fromDatumS
+    , ownOutput, ownDatum, ownValue
+    , ownInput, ownRedeemer, ownScriptId
     ) where
 
 import           Control.Monad
@@ -61,28 +62,34 @@ fromDatumS d = case fromDatum d of
     Nothing -> throwError $ "expected " ++ show d ++ " to wrap value of type " ++ (show $ typeOf (undefined :: a))
     Just a  -> return a
 
+ownOutput :: ScriptM Output
+ownOutput = do
+    i       <- indexS
+    outputs <- outputsS
+    viewS (ix i) outputs
+
 ownDatum :: Typeable a => ScriptM a
 ownDatum = do
-    i       <- indexS
-    outputs <- outputsS
-    d       <- viewS (ix i % oDatum) outputs
-    fromDatumS d
-
-ownRedeemer :: Typeable a => ScriptM a
-ownRedeemer = do
-    i  <- indexS
-    tx <- txS
-    d  <- viewS (txInputs % ix i % iRedeemer) tx
-    fromDatumS d
-
-ownScriptId :: ScriptM ScriptId
-ownScriptId = do
-    i       <- indexS
-    outputs <- outputsS
-    viewS (ix i % oAddress % _ScriptAddr) outputs
+    output <- ownOutput
+    fromDatumS $ output ^. oDatum
 
 ownValue :: ScriptM Value
 ownValue = do
-    i       <- indexS
-    outputs <- outputsS
-    viewS (ix i % oValue) outputs
+    output <- ownOutput
+    return $ output ^. oValue
+
+ownInput :: ScriptM Input
+ownInput = do
+    i  <- indexS
+    tx <- txS
+    viewS (txInputs % ix i) tx
+
+ownRedeemer :: Typeable a => ScriptM a
+ownRedeemer = do
+    input <- ownInput
+    fromDatumS $ input ^. iRedeemer
+
+ownScriptId :: ScriptM ScriptId
+ownScriptId = do
+    output <- ownOutput
+    viewS (oAddress % _ScriptAddr) output

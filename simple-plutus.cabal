@@ -6,7 +6,8 @@ maintainer:          brunjlar@gmail.com
 build-type:          Simple
 
 library
-  exposed-modules:     Examples.Crowd
+  exposed-modules:     Examples.Counter
+                     , Examples.Crowd
                      , Examples.GuessingGame
                      , Examples.Fungible
                      , Plutus

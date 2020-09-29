@@ -1,12 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Plutus.StateMachine
-    (
+    ( StateMachine (..)
+    , trivialCont
+    , deployStateMachine
+    , stateMachineOutput
     ) where
 
-{-
 import Control.Monad
+import Optics
 
+import Plutus.Chain
 import Plutus.Types
 import Plutus.Utils
 import Plutus.Validation
@@ -22,120 +26,129 @@ stateMachineScript :: forall s t. (Eq s, Typeable s, Typeable t)
                    -> Token
                    -> (s -> t -> Maybe (s, Output) -> Script)
                    -> Script
-stateMachineScript sm token cont = Script $ \i outputs tx -> do
+stateMachineScript sm token cont = do
 
-    assert (tokenAmount token value == 1) $
-        validationError "unique token is not present in the old output"
+    v <- ownValue
+    assertS (tokenAmount token v == 1) $ "unique token is not present in the old output"
 
-    state         <- case fromDatum datum of
-                        Nothing -> throwError "datum has the wrong type"
-                        Just s  -> return (s :: s)
-    transition    <- case fromDynamic $ getRedeemer index tx of
-                        Nothing -> throwError "redeemer has the wrong type"
-                        Just t  -> return (t :: t)
+    state         <- ownDatum
+    transition    <- ownRedeemer
     expectedState <- case transit sm state transition of
                         Nothing -> throwError "transition not allowed in this state"
                         Just s  -> return s
 
+    sid <- ownScriptId
+    tx  <- txS
     if isFinal sm expectedState
         then do
-            unless (null $ relevantOutputs sid tx) $
-                throwError "no output at the script address expected in final state"
-            toEither $ runScript (cont state transition Nothing) sid value datum index outputs tx
+            assertS (null $ relevantOutputs sid tx) $ "no output at the script address expected in final state"
+            cont state transition Nothing
         else do
             output        <- case relevantOutputs sid tx of
                                 [o] -> return o
                                 _   -> throwError "expected exactly one output at the script address for the state machine"
-            unless (tokenAmount token (output ^. oValue) == 1) $
-                throwError "unique token is not present in the new output"
+            assertS (tokenAmount token (output ^. oValue) == 1) $
+                "unique token is not present in the new output"
 
-            actualState   <- case fromDynamic $ output ^. oDatum of
-                                Nothing -> throwError "output datum has the wrong type"
-                                Just s  -> return (s :: s)
-            unless (actualState == expectedState) $
-                throwError "actual state of the output does not agree with the expected state"
+            actualState <- fromDatumS $ output ^. oDatum
+            assertS (actualState == expectedState) $
+                "actual state of the output does not agree with the expected state"
 
-            toEither $ runScript (cont state transition (Just (expectedState, output))) sid value datum index outputs tx
+            cont state transition $ Just (expectedState, output)
 
   where
     relevantOutputs :: ScriptId -> Tx -> [Output]
-    relevantOutputs sid tx = [o | o <- tx ^. txOutputs, o ^. oAddress == ScriptAddress sid]
+    relevantOutputs sid tx =
+        [ o
+        | o <- tx ^. txOutputs
+        , o ^. oAddress == ScriptAddr sid
+        ]
 
 trivialCont :: s -> t -> Maybe (s, Output) -> Script
-trivialCont _s _t _mso = Script $ \_sid _value _datum _index _outputs _tx -> Validated
+trivialCont _s _t _mso = return ()
 
--- | monetary policy of our unique token
-uniqueTokenScript :: String      -- ^ token name
-                  -> (TxId, Int) -- ^ "pointer" to an output that must be consumed during forging
+-- | Monetary policy for a unique token.
+uniqueTokenScript :: String    -- ^ token name
+                  -> OutputPtr -- ^ pointer to an output that must be consumed during forging
                   -> Script
-uniqueTokenScript tn (tid, i) = Script $ \sid _value _datum _index _outputs tx -> fromEither $ do
+uniqueTokenScript tn ptr = do
+    sid <- ownScriptId
+    tx  <- txS
     let token = Token sid tn
-    unless (tokenAmount token (tx ^. txForge) == 1) $
-        throwError "unique token must be forged with amount one"
-    unless (any (\input -> input ^. iTxId == tid &&
-                           input ^. iIx   == i) $ tx ^. txInputs) $
-        throwError "required output not consumed by forging transaction"
+    assertS (tokenAmount token (tx ^. txForge) == 1) $
+        "unique token must be forged with amount one"
 
-deployStateMachine :: (Eq s, Typeable s, Typeable t)
+    assertS (anyOf (txInputs % each) (\input -> input ^. iOutputPtr == ptr) tx) $
+        "required output not consumed by forging transaction"
+
+deployStateMachine :: (Show s, Eq s, Typeable s, Typeable t)
                    => StateMachine s t
                    -> (s -> t -> Maybe (s, Output) -> Script) -- ^ continuation script
                    -> PubKey                                  -- ^ "owner" of the state machine
-                   -> ChainM (ScriptId, TxId, Token)
+                   -> ChainM (ScriptId, Token)                -- ^ returns the state machine script id and the unique token
 deployStateMachine sm cont owner = do
 
+    -- find an output belonging to the owner
+    (ptr, output) <- do
+        xs <- outputsAt $ PKAddr owner
+        case xs of
+            []    -> throwError $ CustomError "owner owns no output"
+            x : _ -> return x
+    let v = output ^. oValue
+
     -- create output that will be required to be consumed during forging of the unique token
-    tid1 <- freshTxId
-    addTx Tx
-        { _txId        = tid1
-        , _txInputs    = []
+    tid1 <- addTx Tx
+        { _txInputs    = [Input ptr unit]
         , _txSignees   = [owner]
-        , _txOutputs   = [ Output (PKAddress owner) mempty unit ]
-        , _txSlotRange = SlotRange 0 Forever
+        , _txOutputs   = [ Output (PKAddr owner) mempty unit
+                         , Output (PKAddr owner) v unit
+                         ]
+        , _txSlotRange = always
         , _txForge     = mempty
         }
 
-    uniqueTokenSid <- uploadScript $ uniqueTokenScript "STATEMACHINE" (tid1, 0)
-    let token = Token uniqueTokenSid "STATEMACHINE"
+    let tn = "STATEMACHINE"
+    uniqueTokenSid <- uploadScript $ uniqueTokenScript tn $ optr tid1 0
+    let token = Token uniqueTokenSid tn -- the unique token
 
-    -- create output at the address of the monetary policy of our unique token
-    tid2 <- freshTxId
-    addTx Tx
-        { _txId        = tid2
-        , _txInputs    = []
+    -- create output at the address of the monetary policy of the unique token
+    tid2 <- addTx Tx
+        { _txInputs    = [Input (optr tid1 1) unit]
         , _txSignees   = [owner]
-        , _txOutputs   = [ Output (ScriptAddress uniqueTokenSid) mempty unit ]
-        , _txSlotRange = SlotRange 0 Forever
+        , _txOutputs   = [ Output (ScriptAddr uniqueTokenSid) mempty unit
+                         , Output (PKAddr owner) v unit
+                         ]
+        , _txSlotRange = always
         , _txForge     = mempty
         }
 
     -- forge the unique token
-    tid3 <- freshTxId
-    addTx Tx
-        { _txId        = tid3
-        , _txInputs    = [ Input tid1 0 unit
-                         , Input tid2 0 unit
+    let tv = fromToken token 1
+    tid3 <- addTx Tx
+        { _txInputs    = [ Input (optr tid1 0) unit
+                         , Input (optr tid2 0) unit
                          ]
         , _txSignees   = [owner]
-        , _txOutputs   = [ Output (PKAddress owner) (fromToken token 1) unit ]
-        , _txSlotRange = SlotRange 0 Forever
-        , _txForge     = fromToken token 1
+        , _txOutputs   = [Output (PKAddr owner) tv unit]
+        , _txSlotRange = always
+        , _txForge     = tv
         }
 
+    -- deploy
     stateMachineSid <- uploadScript $ stateMachineScript sm token cont
-    tid4 <- freshTxId
-    addTx Tx
-        { _txId        = tid4
-        , _txInputs    = [Input tid3 0 unit]
+    void $ addTx Tx
+        { _txInputs    = [Input (optr tid3 0) unit]
         , _txSignees   = [owner]
-        , _txOutputs   = [ Output
-                            { _oAddress = ScriptAddress stateMachineSid
-                            , _oValue   = fromToken token 1
-                            , _oDatum   = toDyn $ initialState sm
-                            }
-                         ]
-        , _txSlotRange = SlotRange 0 Forever
+        , _txOutputs   = [Output (ScriptAddr stateMachineSid) tv $ toDatum $ initialState sm]
+        , _txSlotRange = always
         , _txForge     = mempty
         }
 
-    return (stateMachineSid, tid4, token)
--}
+    return (stateMachineSid, token)
+
+stateMachineOutput :: ScriptId -> Token -> ChainM (Maybe (OutputPtr, Output))
+stateMachineOutput sid t = do
+    xs <- outputsAt $ ScriptAddr sid
+    return $ case filter (\(_, o) -> o ^. oValue % value t == 1) xs of
+        [x] -> Just x
+        _   -> Nothing
