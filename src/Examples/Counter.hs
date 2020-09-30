@@ -4,6 +4,7 @@ module Examples.Counter where
 
 import Plutus
 
+-- | A simple state machine implementing a counter.
 counter :: StateMachine Natural ()
 counter = StateMachine
     { initialState = 0
@@ -11,6 +12,7 @@ counter = StateMachine
     , isFinal      = const False
     }
 
+-- | Submits a transaction that ticks the counter.
 count :: ScriptId -> Token -> ChainM ()
 count sid t = do
 
@@ -33,7 +35,18 @@ count sid t = do
         , _txForge     = mempty
         }
 
-counterExample :: IO ()
-counterExample = runChainM' [("Alice", 1000)] $ do
+-- |
+-- >>> counterExample 42
+-- RESULT : ()
+-- time   : 0
+-- outputs:
+-- <BLANKLINE>
+--   TxId                              Ix           Address                        Value                          Datum
+-- <BLANKLINE>
+--   5fde673b32e9bc704b0f292c35a626a9  [ 1]   |->   PKAddr "Alice"                 <1000 ₳>                       <<(): ()>>
+--   7a99d42816801954804fab1060a4feb9  [ 0]   |->   ScriptAddr 1                   <1 {0-STATEMACHINE}>           <<Natural: 42>>
+--
+counterExample :: Int -> IO ()
+counterExample n = runChainM' [("Alice", 1000)] $ do
     (sid, t) <- deployStateMachine counter trivialCont "Alice"
-    replicateM_ 42 $ count sid t
+    replicateM_ n $ count sid t
