@@ -1,3 +1,6 @@
 cradle:
   cabal:
-    component: "lib:simple-plutus"
+    - path: "./src"
+      component: "simple-plutus"
+    - path: "./doctest/doctests.hs"
+      component: "test:simple-plutus-doctests"
