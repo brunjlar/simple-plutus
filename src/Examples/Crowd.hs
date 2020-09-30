@@ -23,7 +23,8 @@ crowdScript owner target collect refund = do
         -- collect
         (_, True) -> do
                         outputs <- outputsS
-                        let v = sumOf (each % oValue % to adaAmount) outputs
+                        sid     <- ownScriptId
+                        let v = sumOf (each % filtered (\o -> o ^. oAddress == ScriptAddr sid) % oValue % to adaAmount) outputs
                         assertS (v >= target) "campaign target not reached"
                         assertS (owner `elem` tx ^. txSignees) "owener signature missing"
 
