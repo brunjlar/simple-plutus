@@ -22,6 +22,17 @@ fungibleScript ptr supply name = do
     assertS (actualSupply == supply) $
         "actually minted token amount " ++ show actualSupply ++ " disagrees with expected amount " ++ show supply
 
+-- |
+-- >>> fungibleExample 1000000 "TOKEN"
+-- RESULT : ()
+-- time   : 0
+-- outputs:
+-- <BLANKLINE>
+--   TxId                              Ix           Address                        Value                          Datum
+-- <BLANKLINE>
+--   80cdeeae6c10a6f2b57e7cbeeab2e501  [ 0]   |->   PKAddr "Alice"                 <1000000 {0-TOKEN}>            <<(): ()>>
+--   c19b8929f590513d271d842d252436cf  [ 0]   |->   PKAddr "Alice"                 <1000 ₳>                       <<(): ()>>
+--
 fungibleExample :: Natural -> String -> IO ()
 fungibleExample supply tn = runChainM' [("Alice", 1000)] $ do
     -- create an output that can serve as unique output for the monetary policy
