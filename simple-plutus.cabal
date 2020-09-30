@@ -4,6 +4,7 @@ version:             0.1.0.0
 author:              Lars Brünjes
 maintainer:          brunjlar@gmail.com
 build-type:          Custom
+extra-source-files:  README.md
 
 custom-setup
   setup-depends:
