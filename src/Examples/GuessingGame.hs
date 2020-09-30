@@ -12,6 +12,19 @@ guessingScript secret = do
     guess <- ownRedeemer
     assertS (guess == secret) $ "incorrect guess"
 
+-- |
+-- >>> guessingExample "Java"
+-- ERROR: ValidationError "incorrect guess"
+--
+-- >>> guessingExample "Haskell"
+-- RESULT : ()
+-- time   : 0
+-- outputs:
+-- <BLANKLINE>
+--   TxId                              Ix           Address                        Value                          Datum
+-- <BLANKLINE>
+--   a7af03d34254e12b6821ef95df11b2cf  [ 0]   |->   PKAddr "Bob"                   <100 ₳>                        <<(): ()>>
+--
 guessingExample :: String -> IO ()
 guessingExample guess = runChainM' [("Alice", 100)] $ do
     sid  <- uploadScript $ guessingScript "Haskell"
