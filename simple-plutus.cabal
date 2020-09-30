@@ -17,6 +17,7 @@ library
                      , Examples.Crowd
                      , Examples.GuessingGame
                      , Examples.Fungible
+                     , Examples.NoPlutus
                      , Plutus
                      , Plutus.Chain
                      , Plutus.Hash
