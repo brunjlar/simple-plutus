@@ -10,7 +10,7 @@ guessingScript :: String -- ^ the secret to guess
                -> Script
 guessingScript secret = do
     guess <- ownRedeemer
-    assertS (guess == secret) $ "incorrect guess"
+    assertS (guess == secret) "incorrect guess"
 
 -- |
 -- >>> guessingExample "Java"

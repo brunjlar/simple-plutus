@@ -12,8 +12,9 @@ module Plutus.Utils
     ) where
 
 import           Control.Monad
+import           Data.Proxy      (Proxy (..))
 import qualified Data.Map.Strict as Map
-import           Data.Typeable   (typeOf)
+import           Data.Typeable   (typeRep)
 import           Optics
 import           Text.Printf     (printf)
 
@@ -32,7 +33,7 @@ dumpChainState cs = do
     printf "time   : %d\n" (cs ^. csSlot)
     printf "outputs:\n\n"
     printf "  TxId                              Ix           Address                        Value                          Datum\n\n"
-    forM_ (cs ^. csUTxOs % to Map.toList) $ \(OutputPtr h i, Output a v d) -> do
+    forM_ (cs ^. csUTxOs % to Map.toList) $ \(OutputPtr h i, Output a v d) ->
         printf "  %-33s [%2d]   |->   %-30s %-30s %s\n" (maybe "Genesis" show h) i (show a) (show v) (show d)
 
 runChainM' :: Show a => [(PubKey, Natural)] -> ChainM a -> IO ()
@@ -43,7 +44,7 @@ runChainM' xs m = case runChainM xs m of
         dumpChainState cs
 
 optr :: Hash -> Int -> OutputPtr
-optr h i = OutputPtr (Just h) i
+optr h = OutputPtr (Just h)
 
 always :: SlotRange
 always = SlotRange 0 Forever
@@ -59,7 +60,7 @@ viewS o s = case preview o s of
 
 fromDatumS :: forall a. Typeable a => Datum -> ScriptM a
 fromDatumS d = case fromDatum d of
-    Nothing -> throwError $ "expected " ++ show d ++ " to wrap value of type " ++ (show $ typeOf (undefined :: a))
+    Nothing -> throwError $ "expected " ++ show d ++ " to wrap value of type " ++ show (typeRep (Proxy :: Proxy a))
     Just a  -> return a
 
 ownOutput :: ScriptM Output

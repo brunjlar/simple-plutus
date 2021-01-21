@@ -38,7 +38,7 @@ fungibleExample supply tn = runChainM' [("Alice", 1000)] $ do
     -- create an output that can serve as unique output for the monetary policy
     tid1 <- addTx $ Tx
         { _txInputs    = [Input (genesis 0) unit]
-        , _txOutputs   = [ Output "Alice" (fromAda $ 1000) unit
+        , _txOutputs   = [ Output "Alice" (fromAda 1000) unit
                          , Output "Alice" mempty unit
                          ]
         , _txSignees   = ["Alice"]
@@ -51,7 +51,7 @@ fungibleExample supply tn = runChainM' [("Alice", 1000)] $ do
     let token = Token sid tn
     tid2 <- addTx $ Tx
         { _txInputs    = [Input (optr tid1 0) unit]
-        , _txOutputs   = [ Output "Alice" (fromAda $ 1000) unit
+        , _txOutputs   = [ Output "Alice" (fromAda 1000) unit
                          , Output (ScriptAddr sid) mempty unit
                          ]
         , _txSignees   = ["Alice"]

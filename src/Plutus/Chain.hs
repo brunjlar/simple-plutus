@@ -64,7 +64,7 @@ time = ChainM $ use csSlot
 uploadScript :: Script -> ChainM ScriptId
 uploadScript script = ChainM $ do
     csScripts %= (Seq.|> script)
-    (fromIntegral . pred . length) <$> use csScripts
+    fromIntegral . pred . length <$> use csScripts
 
 lookupScript :: ScriptId -> ChainM Script
 lookupScript sid = ChainM $ do

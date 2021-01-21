@@ -29,7 +29,7 @@ stateMachineScript :: forall s t. (Eq s, Typeable s, Typeable t)
 stateMachineScript sm token cont = do
 
     v <- ownValue
-    assertS (tokenAmount token v == 1) $ "unique token is not present in the old output"
+    assertS (tokenAmount token v == 1) "unique token is not present in the old output"
 
     state         <- ownDatum
     transition    <- ownRedeemer
@@ -41,17 +41,17 @@ stateMachineScript sm token cont = do
     tx  <- txS
     if isFinal sm expectedState
         then do
-            assertS (null $ relevantOutputs sid tx) $ "no output at the script address expected in final state"
+            assertS (null $ relevantOutputs sid tx) "no output at the script address expected in final state"
             cont state transition Nothing
         else do
             output        <- case relevantOutputs sid tx of
                                 [o] -> return o
                                 _   -> throwError "expected exactly one output at the script address for the state machine"
-            assertS (tokenAmount token (output ^. oValue) == 1) $
+            assertS (tokenAmount token (output ^. oValue) == 1)
                 "unique token is not present in the new output"
 
             actualState <- fromDatumS $ output ^. oDatum
-            assertS (actualState == expectedState) $
+            assertS (actualState == expectedState)
                 "actual state of the output does not agree with the expected state"
 
             cont state transition $ Just (expectedState, output)
@@ -75,10 +75,10 @@ uniqueTokenScript tn ptr = do
     sid <- ownScriptId
     tx  <- txS
     let token = Token sid tn
-    assertS (tokenAmount token (tx ^. txForge) == 1) $
+    assertS (tokenAmount token (tx ^. txForge) == 1)
         "unique token must be forged with amount one"
 
-    assertS (anyOf (txInputs % each) (\input -> input ^. iOutputPtr == ptr) tx) $
+    assertS (anyOf (txInputs % each) (\input -> input ^. iOutputPtr == ptr) tx)
         "required output not consumed by forging transaction"
 
 deployStateMachine :: (Show s, Eq s, Typeable s, Typeable t)
